@@ -1,6 +1,8 @@
 import { useParams } from 'react-router-dom'
 import { useAssessment, useSaveAssessment, useSubmitAssessment } from '../hooks/useAssessments'
 import { useState } from 'react'
+import { useAuth } from '../context/AuthContext.jsx'
+import { useJobsList } from '../hooks/useJobs'
 
 function SectionEditor({ section, onChange }){
   const updateQuestion = (idx, q) => {
@@ -125,10 +127,15 @@ function Preview({ assessment, onSubmitMock }){
 
 export default function AssessmentBuilder(){
   const { jobId } = useParams()
+  const { user } = useAuth()
   const { data } = useAssessment(jobId)
   const save = useSaveAssessment()
   const submit = useSubmitAssessment()
   const assessment = data || { jobId, sections: [] }
+  const { data: jobsData } = useJobsList({ page: 1, pageSize: 1000 })
+  const job = jobsData?.items?.find(j => j.id===jobId)
+  const now = Date.now()
+  const builderLocked = user?.role!=='candidate' && job?.assessmentDate && new Date(job.assessmentDate).getTime() <= now
 
   const updateSection = (idx, sec) => {
     const next = { ...assessment, sections: assessment.sections.slice() }
@@ -140,16 +147,34 @@ export default function AssessmentBuilder(){
     save.mutate({ jobId, data: next })
   }
 
+  if (user?.role === 'candidate') {
+    return (
+      <div>
+        <div className="font-semibold mb-3">Assessment</div>
+        <Preview assessment={assessment} onSubmitMock={async (answers)=> {
+          const result = await submit.mutateAsync({ jobId, candidateId: user.id, answers })
+          alert(`Attempted: ${result.attempted}, Correct: ${result.correct}, Incorrect: ${result.incorrect}, Skipped: ${result.skipped}`)
+        }} />
+      </div>
+    )
+  }
+
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <div className="font-semibold">Builder</div>
-          <button onClick={addSection} className="px-2 py-1 border rounded">+ Add section</button>
+          <div className="font-semibold">Builder {builderLocked && <span className="text-xs text-red-600">(locked after assessment date)</span>}</div>
+          {!builderLocked && <button onClick={addSection} className="px-2 py-1 border rounded">+ Add section</button>}
         </div>
         {(assessment.sections||[]).map((s,i)=> (
           <div key={s.id} className="border rounded p-3 bg-white">
-            <SectionEditor section={s} onChange={sec => updateSection(i, sec)} />
+            {!builderLocked ? (
+              <SectionEditor section={s} onChange={sec => updateSection(i, sec)} />
+            ) : (
+              <div className="opacity-60 pointer-events-none">
+                <SectionEditor section={s} onChange={()=>{}} />
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -105,7 +105,7 @@ export default function Jobs(){
         </div>
       )}
 
-      <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center">
         <div className="text-sm text-gray-500">Total: {total}</div>
         <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
       </div>

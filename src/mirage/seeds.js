@@ -10,6 +10,20 @@ function slugify(str){
 }
 
 export async function seedAll(){
+  // Ensure default users exist (idempotent upsert by email)
+  const defaultUsers = [
+    { email: 'admin1234@talentflow.com', role: 'admin', password: 'admin1234' },
+    { email: 'admin@talentflow.test', role: 'admin', password: 'admin123' },
+    { email: 'hr1@talentflow.test', role: 'hr-team', password: 'hr12345' },
+    { email: 'hr2@talentflow.test', role: 'hr-team', password: 'hr12345' },
+  ]
+  for (const u of defaultUsers) {
+    const existing = await db.users.where('email').equals(u.email).first().catch(()=>null)
+    if (!existing) {
+      await db.users.add({ id: crypto.randomUUID(), ...u }).catch(()=>{})
+    }
+  }
+
   const jobsCount = await db.jobs.count()
   if (jobsCount > 0) return
 
@@ -24,6 +38,13 @@ export async function seedAll(){
       status: Math.random() < 0.2 ? 'archived' : 'active',
       tags: [randomChoice(jobTags)],
       order: i,
+      description: 'We are seeking talented engineers to join our team.',
+      salary: 80000 + Math.floor(Math.random()*70000),
+      attachments: [],
+      startDate: new Date(Date.now() - 3*24*60*60*1000).toISOString(),
+      endDate: new Date(Date.now() + 7*24*60*60*1000).toISOString(),
+      assessmentDate: new Date(Date.now() + 9*24*60*60*1000).toISOString(),
+      assessmentDuration: 45,
     })
   }
   await db.jobs.bulkAdd(jobs)
@@ -45,6 +66,9 @@ export async function seedAll(){
   // timelines for initial stage
   const timeline = candidates.map(c => ({ id: crypto.randomUUID(), candidateId: c.id, at: Date.now(), event: `stage:${c.stage}` }))
   await db.timelines.bulkAdd(timeline)
+
+  // candidateProfiles placeholders for seeded candidates (not required, but helps);
+  await db.candidateProfiles.bulkAdd(candidates.slice(0,10).map(c => ({ candidateId: c.id, completedAt: Date.now() }))).catch(()=>{})
 
   // 3 assessments with 10+ questions
   for (let i=0;i<3;i++){
