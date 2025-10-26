@@ -13,6 +13,7 @@ import CandidateProfile from './pages/CandidateProfile.jsx'
 import Pipeline from './pages/Pipeline.jsx'
 import AssessmentBuilder from './pages/AssessmentBuilder.jsx'
 import CandidateJobs from './pages/CandidateJobs.jsx'
+import ApplicationDetails from './pages/ApplicationDetails.jsx'
 import { useAuth } from './context/AuthContext.jsx'
 
 function Root() {
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/jobs/:jobId/assessment" element={<RequireAuth><AssessmentBuilder /></RequireAuth>} />
         <Route path="/candidates" element={<RequireAuth roles={['admin','hr-team']}><Candidates /></RequireAuth>} />
         <Route path="/candidates/:id" element={<RequireAuth roles={['admin','hr-team']}><CandidateProfile /></RequireAuth>} />
+  <Route path="/applications/:appId" element={<RequireAuth roles={['admin','hr-team']}><ApplicationDetails /></RequireAuth>} />
         <Route path="/pipeline" element={<RequireAuth roles={['admin','hr-team']}><Pipeline /></RequireAuth>} />
         <Route path="*" element={<div className="p-6">Not Found</div>} />
       </Routes>

@@ -9,6 +9,7 @@ export function makeServer({ environment = 'development' } = {}) {
     routes() {
       this.timing = 0 // we'll control latency manually
       this.namespace = ''
+      const stageOrder = ['applied','screen','tech','offer','hired','rejected']
 
       // Jobs
       this.get('/jobs', async (schema, request) => {
@@ -118,6 +119,15 @@ export function makeServer({ environment = 'development' } = {}) {
         return { items: pageItems, total, page: p, pageSize: ps }
       })
 
+      // Fetch single candidate
+      this.get('/candidates/:id', async (_, request) => {
+        await randomDelay()
+        const { id } = request.params
+        const cand = await db.candidates.get(id)
+        if (!cand) return new Response(404)
+        return cand
+      })
+
       this.post('/candidates', async (_, request) => {
         await randomDelay()
         await maybeFail({ write: true })
@@ -133,6 +143,14 @@ export function makeServer({ environment = 'development' } = {}) {
         await maybeFail({ write: true })
         const { id } = request.params
         const updates = JSON.parse(request.requestBody || '{}')
+        if (updates.stage) {
+          const cand = await db.candidates.get(id)
+          const fromIdx = stageOrder.indexOf(cand?.stage)
+          const toIdx = stageOrder.indexOf(updates.stage)
+          if (fromIdx !== -1 && toIdx !== -1 && toIdx < fromIdx) {
+            return new Response(400, {}, { message: 'Stage cannot move backward' })
+          }
+        }
         await db.candidates.update(id, updates)
         if (updates.stage) {
           await db.timelines.add({ id: crypto.randomUUID(), candidateId: id, at: Date.now(), event: `stage:${updates.stage}` })
@@ -150,14 +168,12 @@ export function makeServer({ environment = 'development' } = {}) {
 
       // Assessments
       this.get('/assessments/:jobId', async (_, request) => {
-        await randomDelay()
         const { jobId } = request.params
         const a = await db.assessments.where('jobId').equals(jobId).first()
         return a || { jobId, sections: [] }
       })
 
       this.put('/assessments/:jobId', async (_, request) => {
-        await randomDelay()
         await maybeFail({ write: true })
         const { jobId } = request.params
         const body = JSON.parse(request.requestBody || '{}')
@@ -172,16 +188,23 @@ export function makeServer({ environment = 'development' } = {}) {
         const body = JSON.parse(request.requestBody || '{}')
         const submission = { id: crypto.randomUUID(), jobId, candidateId: body.candidateId, at: Date.now(), answers: body.answers }
         await db.submissions.add(submission)
-        // rudimentary scoring: if options contain 'Yes' and answer is 'Yes' count as correct, otherwise neutral
-        let attempted = 0, correct = 0, incorrect = 0, skipped = 0
+        // scoring: existing heuristic + optional per-question marks when hasMarks is set
+        let attempted = 0, correct = 0, incorrect = 0, skipped = 0, marks = 0
         const a = await db.assessments.where('jobId').equals(jobId).first()
         const allQs = (a?.sections||[]).flatMap(s => s.questions||[])
         for (const q of allQs) {
           const v = body.answers?.[q.id]
           if (v==='' || v===undefined || (Array.isArray(v)&&v.length===0)) { skipped++; continue }
           attempted++
+          let isCorrect = false
           if (q.type==='singleChoice' && q.options?.includes('Yes')) {
-            if (v==='Yes') correct++; else incorrect++
+            isCorrect = (v==='Yes')
+          }
+          if (isCorrect) correct++; else incorrect++
+          if (q.hasMarks) {
+            const c = (q.marksCorrect ?? 1)
+            const ic = (q.marksIncorrect ?? 0)
+            marks += isCorrect ? c : ic
           }
         }
         // store in applications if exists
@@ -192,9 +215,10 @@ export function makeServer({ environment = 'development' } = {}) {
           app.correct = correct
           app.incorrect = incorrect
           app.skipped = skipped
+          app.marks = marks
           await db.applications.put(app)
         }
-        return { ok: true, id: submission.id, attempted, correct, incorrect, skipped }
+        return { ok: true, id: submission.id, attempted, correct, incorrect, skipped, marks }
       })
 
       // Admin maintenance: reset jobs/candidates data and reseed
@@ -268,6 +292,13 @@ export function makeServer({ environment = 'development' } = {}) {
         const list = await db.users.toArray()
         return { items: list }
       })
+      this.get('/users/:id', async (_, request) => {
+        await randomDelay()
+        const { id } = request.params
+        const u = await db.users.get(id)
+        if (!u) return new Response(404)
+        return { id: u.id, email: u.email, role: u.role, phone: u.phone||'', address: u.address||'', postalCode: u.postalCode||'' }
+      })
 
       this.patch('/users/:id/role', async (_, request) => {
         await randomDelay()
@@ -285,6 +316,12 @@ export function makeServer({ environment = 'development' } = {}) {
         await randomDelay()
         const id = localStorage.getItem('sessionUserId')
         if (!id) return new Response(401)
+        const p = await db.candidateProfiles.where('candidateId').equals(id).first()
+        return p || { candidateId: id }
+      })
+      this.get('/candidate/profile/:id', async (_, request) => {
+        await randomDelay()
+        const { id } = request.params
         const p = await db.candidateProfiles.where('candidateId').equals(id).first()
         return p || { candidateId: id }
       })
@@ -313,7 +350,17 @@ export function makeServer({ environment = 'development' } = {}) {
         if (job?.endDate && new Date(job.endDate).getTime() < now) return new Response(400, {}, { message: 'Applications closed' })
         const existing = await db.applications.where('[jobId+candidateId]').equals([body.jobId, id]).first().catch(()=>null)
         if (existing) return existing
-        const app = { id: crypto.randomUUID(), jobId: body.jobId, candidateId: id, appliedAt: Date.now(), stage: 'applied' }
+        const user = await db.users.get(id).catch(()=>null)
+        const profile = await db.candidateProfiles.where('candidateId').equals(id).first().catch(()=>null)
+        const email = user?.email || ''
+        let candidateName = ''
+        if (profile?.name) {
+          candidateName = profile.name
+        } else if (email) {
+          const local = email.split('@')[0]
+          candidateName = local.split(/[._-]+/).map(s => s.charAt(0).toUpperCase()+s.slice(1)).join(' ')
+        }
+        const app = { id: crypto.randomUUID(), jobId: body.jobId, candidateId: id, candidateEmail: email, candidateName, appliedAt: Date.now(), stage: 'applied' }
         await db.applications.add(app)
         return app
       })
@@ -325,11 +372,27 @@ export function makeServer({ environment = 'development' } = {}) {
         if (qp.jobId) items = items.filter(a => a.jobId === qp.jobId)
         return { items }
       })
+      this.get('/applications/:id', async (_, request) => {
+        await randomDelay()
+        const { id } = request.params
+        const app = await db.applications.get(id)
+        if (!app) return new Response(404)
+        return app
+      })
       this.patch('/applications/:id', async (_, request) => {
         await randomDelay()
         await maybeFail({ write: true })
         const { id } = request.params
         const updates = JSON.parse(request.requestBody || '{}')
+        if (updates.stage) {
+          const stageOrder = ['applied','screen','tech','offer','hired','rejected']
+          const app = await db.applications.get(id)
+          const fromIdx = stageOrder.indexOf(app?.stage)
+          const toIdx = stageOrder.indexOf(updates.stage)
+          if (fromIdx !== -1 && toIdx !== -1 && toIdx < fromIdx) {
+            return new Response(400, {}, { message: 'Stage cannot move backward' })
+          }
+        }
         await db.applications.update(id, updates)
         const app = await db.applications.get(id)
         return app

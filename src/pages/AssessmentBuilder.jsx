@@ -10,8 +10,13 @@ function SectionEditor({ section, onChange }){
     questions[idx] = q
     onChange({ ...section, questions })
   }
+  const deleteQuestion = (idx) => {
+    const questions = section.questions.slice()
+    questions.splice(idx, 1)
+    onChange({ ...section, questions })
+  }
   const addQuestion = () => {
-    const q = { id: crypto.randomUUID(), type: 'shortText', label: 'New question', required: false }
+    const q = { id: crypto.randomUUID(), type: 'shortText', label: 'New question', required: false, hasMarks: false, marksCorrect: 1, marksIncorrect: 0 }
     onChange({ ...section, questions: [...section.questions, q] })
   }
   return (
@@ -20,7 +25,7 @@ function SectionEditor({ section, onChange }){
       <div className="space-y-2">
         {section.questions.map((q,i)=> (
           <div key={q.id} className="border rounded p-2">
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-start">
               <select className="border rounded px-2 py-1" value={q.type} onChange={e=>updateQuestion(i,{...q, type:e.target.value})}>
                 <option value="shortText">Short Text</option>
                 <option value="longText">Long Text</option>
@@ -31,6 +36,7 @@ function SectionEditor({ section, onChange }){
               </select>
               <input className="border rounded px-2 py-1 flex-1" value={q.label} onChange={e=>updateQuestion(i,{...q,label:e.target.value})} />
               <label className="text-sm flex items-center gap-1"><input type="checkbox" checked={!!q.required} onChange={e=>updateQuestion(i,{...q,required:e.target.checked})} />Required</label>
+              <button type="button" onClick={()=>deleteQuestion(i)} className="ml-auto text-sm px-2 py-1 border rounded text-red-600">Delete</button>
             </div>
             {(q.type==='singleChoice' || q.type==='multiChoice') && (
               <input className="mt-2 border rounded px-2 py-1 w-full" placeholder="Comma-separated options" value={(q.options||[]).join(', ')} onChange={e=>updateQuestion(i,{...q, options: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} />
@@ -41,6 +47,40 @@ function SectionEditor({ section, onChange }){
                 <input className="border rounded px-2 py-1 w-24" type="number" placeholder="max" value={q.max??''} onChange={e=>updateQuestion(i,{...q, max: e.target.value===''?undefined:Number(e.target.value)})} />
               </div>
             )}
+            <div className="mt-2 flex flex-wrap gap-3 items-center">
+              <label className="text-sm flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={!!q.hasMarks}
+                  onChange={e=>{
+                    const checked = e.target.checked
+                    updateQuestion(i, { ...q, hasMarks: checked, marksCorrect: checked ? (q.marksCorrect ?? 1) : q.marksCorrect, marksIncorrect: checked ? (q.marksIncorrect ?? 0) : q.marksIncorrect })
+                  }}
+                /> Has marks
+              </label>
+              {q.hasMarks && (
+                <>
+                  <label className="text-sm flex items-center gap-1">
+                    Correct
+                    <input
+                      type="number"
+                      className="border rounded px-2 py-1 w-20 ml-1"
+                      value={q.marksCorrect ?? 1}
+                      onChange={e=>updateQuestion(i,{...q, marksCorrect: e.target.value===''?0:Number(e.target.value)})}
+                    />
+                  </label>
+                  <label className="text-sm flex items-center gap-1">
+                    Incorrect
+                    <input
+                      type="number"
+                      className="border rounded px-2 py-1 w-20 ml-1"
+                      value={q.marksIncorrect ?? 0}
+                      onChange={e=>updateQuestion(i,{...q, marksIncorrect: e.target.value===''?0:Number(e.target.value)})}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
           </div>
         ))}
         <button onClick={addQuestion} className="px-2 py-1 border rounded">+ Add question</button>

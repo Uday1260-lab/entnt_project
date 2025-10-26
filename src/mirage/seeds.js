@@ -30,7 +30,20 @@ export async function seedAll(){
   // 25 jobs
   const jobs = []
   for (let i=1;i<=25;i++){
-    const title = `Job ${i} - ${randomChoice(['Frontend','Backend','Fullstack','Data','DevOps'])} Engineer`
+    const title = `Job ${i} - ${randomChoice([
+  // Original List
+  'Frontend', 'Backend', 'Fullstack', 'Data', 'DevOps',
+  // Infrastructure & Cloud
+  'Cloud', 'Infrastructure', 'SRE', 'Platform',
+  // Data & AI
+  'AI', 'Machine Learning', 'ML', 'Data Science', 'Analytics', 'BI',
+  // Specialized Development
+  'Mobile', 'iOS', 'Android', 'Embedded', 'Game', 'Graphics',
+  // Security
+  'Security', 'Infosec', 'AppSec', 'Cybersecurity',
+  // Other Key Roles
+  'QA', 'Test', 'UX', 'UI', 'Product', 'Systems', 'Solution', 'Blockchain'
+  ])} Engineer`
     jobs.push({
       id: crypto.randomUUID(),
       title,
@@ -50,8 +63,24 @@ export async function seedAll(){
   await db.jobs.bulkAdd(jobs)
 
   // 1000 candidates
-  const firstNames = ['Alex','Sam','Jordan','Taylor','Casey','Drew','Jamie','Morgan','Riley','Skyler']
-  const lastNames = ['Smith','Johnson','Lee','Patel','Garcia','Brown','Davis','Martinez','Lopez','Wilson']
+  const firstNames = [
+  // Original List
+  'Alex', 'Sam', 'Jordan', 'Taylor', 'Casey', 'Drew', 'Jamie', 'Morgan', 'Riley', 'Skyler',
+  // Additional Male
+  'Noah', 'Liam', 'Ethan', 'James', 'Benjamin', 'Lucas', 'Mason', 'Jacob', 'Daniel', 'Henry',
+  // Additional Female
+  'Emma', 'Olivia', 'Ava', 'Sophia', 'Isabella', 'Mia', 'Charlotte', 'Amelia', 'Harper', 'Evelyn',
+  // Additional Gender-Neutral
+  'Avery', 'Rowan', 'Quinn', 'Finley', 'Sawyer', 'Parker', 'Blake', 'Hayden', 'Reese', 'Emery'
+  ];
+  const lastNames = [
+  // Original List
+  'Smith', 'Johnson', 'Lee', 'Patel', 'Garcia', 'Brown', 'Davis', 'Martinez', 'Lopez', 'Wilson',
+  // Additional Common
+  'Jones', 'Miller', 'Moore', 'Thompson', 'Anderson', 'Thomas', 'Jackson', 'White', 'Harris', 'Clark',
+  // Additional Culturally Diverse
+  'Nguyen', 'Kim', 'Silva', 'Rossi', 'Müller', 'Dubois', 'Ivanov', 'Sato', 'Cohen', 'Khan'
+  ];
   const candidates = []
   for (let i=0;i<1000;i++){
     const name = `${randomChoice(firstNames)} ${randomChoice(lastNames)}`

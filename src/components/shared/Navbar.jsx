@@ -19,12 +19,12 @@ export default function Navbar(){
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-2">
         <div className="font-semibold mr-4">TalentFlow</div>
         <NavLink to="/jobs" className={linkCls}>Jobs</NavLink>
-        <NavLink to="/candidates" className={linkCls}>Candidates</NavLink>
-        <NavLink to="/pipeline" className={linkCls}>Pipeline</NavLink>
+  {(user?.role==='admin' || user?.role==='hr-team') && <NavLink to="/candidates" className={linkCls}>Candidates</NavLink>}
+  {/* Pipeline link intentionally hidden for all roles */}
         <div className="ml-auto flex items-center gap-2">
           {!user && <NavLink to="/login" className={linkCls}>Login</NavLink>}
           {!user && <NavLink to="/register" className={linkCls}>Register</NavLink>}
-          {user?.role==='candidate' && <NavLink to="/candidate/jobs" className={linkCls}>My Jobs</NavLink>}
+          {/* Candidate uses Jobs page now; no separate My Jobs link */}
           {user?.role==='admin' && <NavLink to="/admin" className={linkCls}>Admin</NavLink>}
           {user && <button onClick={async()=>{ await logout(); nav('/login') }} className="px-3 py-2 rounded-md text-sm bg-gray-100">Logout</button>}
         </div>

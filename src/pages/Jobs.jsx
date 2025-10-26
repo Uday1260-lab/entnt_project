@@ -1,30 +1,27 @@
 import { useMemo, useState } from 'react'
 import { DndContext, closestCenter, useDraggable, useDroppable } from '@dnd-kit/core'
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { useCreateJob, useJobsList, useReorderJob, useUpdateJob } from '../hooks/useJobs'
+import { useJobsList, useReorderJob, useUpdateJob } from '../hooks/useJobs'
 import LoadingSpinner from '../components/shared/LoadingSpinner'
 import ErrorBanner from '../components/shared/ErrorBanner'
 import Pagination from '../components/shared/Pagination'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
+import CandidateJobs from './CandidateJobs.jsx'
 
 export default function Jobs(){
+  const { user } = useAuth()
+  if (user?.role === 'candidate') {
+    // Render the candidate-specific jobs view (previously My Jobs) directly on /jobs
+    return <CandidateJobs />
+  }
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
   const pageSize = 10
   const { data, isLoading, isError, error } = useJobsList({ search, status, page, pageSize, sort: 'order:asc' })
-  const createJob = useCreateJob()
   const updateJob = useUpdateJob()
   const reorder = useReorderJob()
-
-  const onCreate = async () => {
-    const title = prompt('Job title (required)')
-    if (!title) return
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')
-    try {
-      await createJob.mutateAsync({ title, slug, tags: [] })
-    } catch (e) { alert(e.message) }
-  }
 
   const onArchiveToggle = async (job) => {
     try { await updateJob.mutateAsync({ id: job.id, updates: { status: job.status === 'active' ? 'archived' : 'active' } }) }
@@ -56,7 +53,9 @@ export default function Jobs(){
             <option value="archived">Archived</option>
           </select>
         </div>
-        <button onClick={onCreate} className="ml-auto px-3 py-2 bg-indigo-600 text-white rounded">New Job</button>
+        {user?.role !== 'candidate' && (
+          <Link to="/add-job" className="ml-auto px-3 py-2 bg-indigo-600 text-white rounded">New Job</Link>
+        )}
       </div>
 
       {isLoading && <LoadingSpinner />}
