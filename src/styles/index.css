@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+/* Utility for mention highlighting */
+.mention { @apply text-indigo-600 font-medium; }
