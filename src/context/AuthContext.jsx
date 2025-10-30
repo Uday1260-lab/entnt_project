@@ -19,18 +19,48 @@ export function AuthProvider({ children }){
   }, [])
 
   const login = async (email, password) => {
-    const res = await fetch('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) })
-    if (!res.ok) throw new Error((await res.json()).message || 'Login failed')
-    const u = await res.json()
-    setUser(u)
-    return u
+    try {
+      const res = await fetch('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) })
+      if (!res.ok) {
+        const contentType = res.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await res.json()
+          throw new Error(errorData.message || 'Login failed')
+        } else {
+          throw new Error('Server error. Please check if the application is running correctly.')
+        }
+      }
+      const u = await res.json()
+      setUser(u)
+      return u
+    } catch (error) {
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        throw new Error('Cannot connect to server. Please check your connection.')
+      }
+      throw error
+    }
   }
   const register = async (data) => {
-    const res = await fetch('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
-    if (!res.ok) throw new Error((await res.json()).message || 'Register failed')
-    const u = await res.json()
-    setUser(u)
-    return u
+    try {
+      const res = await fetch('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+      if (!res.ok) {
+        const contentType = res.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await res.json()
+          throw new Error(errorData.message || 'Register failed')
+        } else {
+          throw new Error('Server error. Please check if the application is running correctly.')
+        }
+      }
+      const u = await res.json()
+      setUser(u)
+      return u
+    } catch (error) {
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        throw new Error('Cannot connect to server. Please check your connection.')
+      }
+      throw error
+    }
   }
   const logout = async () => {
     await fetch('/auth/logout', { method: 'POST' })

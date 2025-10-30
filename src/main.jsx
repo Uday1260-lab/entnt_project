@@ -7,10 +7,9 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import './styles/index.css'
 import { makeServer } from './mirage/server'
 
-// Start MirageJS server in development
-if (import.meta.env.DEV) {
-  makeServer({ environment: 'development' })
-}
+// Start MirageJS server in both development and production
+// Since this is a demo app with mock data
+makeServer({ environment: import.meta.env.DEV ? 'development' : 'production' })
 
 const queryClient = new QueryClient()
 
