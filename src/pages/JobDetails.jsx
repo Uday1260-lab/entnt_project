@@ -131,29 +131,41 @@ export default function JobDetails(){
                     <th className="p-2">Name</th>
                     <th className="p-2">Email</th>
                     <th className="p-2">Stage</th>
+                    <th className="p-2">Marks</th>
                     <th className="p-2 w-56">Change stage</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {applications.map(a => {
-                    const u = usersMap[a.candidateId]
-                    const p = profilesMap[a.candidateId]
-                    const email = a.candidateEmail || u?.email || '-'
-                    const displayName = a.candidateName || p?.name || (email!=='-' ? email.split('@')[0].split(/[._-]+/).map(s=>s.charAt(0).toUpperCase()+s.slice(1)).join(' ') : a.candidateId)
-                    const row = (
-                      <tr key={a.id} className="border-t hover:bg-gray-50 cursor-pointer" onClick={()=>navigate(`/applications/${a.id}`)}>
-                        <td className="p-2">{displayName}</td>
-                        <td className="p-2">{email}</td>
-                        <td className="p-2 capitalize">{a.stage}</td>
-                        <td className="p-2" onClick={(e)=>e.stopPropagation()}>
-                          <StageSelector app={a} onUpdated={(next)=>{
-                            setApplications(prev => prev.map(x => x.id===a.id ? { ...x, stage: next } : x))
-                          }} />
-                        </td>
-                      </tr>
-                    )
-                    return row
-                  })}
+                  {applications.length > 0 ? (
+                    applications.map(a => {
+                      const u = usersMap[a.candidateId]
+                      const p = profilesMap[a.candidateId]
+                      const email = a.candidateEmail || u?.email || '-'
+                      const displayName = a.candidateName || p?.name || (email!=='-' ? email.split('@')[0].split(/[._-]+/).map(s=>s.charAt(0).toUpperCase()+s.slice(1)).join(' ') : a.candidateId)
+                      const row = (
+                        <tr key={a.id} className="border-t hover:bg-gray-50 cursor-pointer" onClick={()=>navigate(`/applications/${a.id}`)}>
+                          <td className="p-2">{displayName}</td>
+                          <td className="p-2">{email}</td>
+                          <td className="p-2 capitalize">{a.stage}</td>
+                          <td className="p-2">
+                            {a.marks != null ? (
+                              <span className="font-semibold text-indigo-600">{a.marks}</span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">Pending</span>
+                            )}
+                          </td>
+                          <td className="p-2" onClick={(e)=>e.stopPropagation()}>
+                            <StageSelector app={a} onUpdated={(next)=>{
+                              setApplications(prev => prev.map(x => x.id===a.id ? { ...x, stage: next } : x))
+                            }} />
+                          </td>
+                        </tr>
+                      )
+                      return row
+                    })
+                  ) : (
+                    <tr><td className="p-3 text-sm text-gray-500 text-center" colSpan={5}>No entry</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -177,7 +189,26 @@ function CandidateJobActions({ job }){
     })()
   }, [job.id])
   const now = Date.now()
-  const canApply = (!job.startDate || new Date(job.startDate).getTime() <= now) && (!job.endDate || new Date(job.endDate).getTime() >= now)
+  const startTime = job.startDate ? new Date(job.startDate).getTime() : null
+  const endTime = job.endDate ? new Date(job.endDate).getTime() : null
+  
+  let canApply = false
+  let buttonText = 'Apply'
+  
+  if (startTime && now < startTime) {
+    // Application window hasn't started yet
+    canApply = false
+    buttonText = 'Opens Soon'
+  } else if (endTime && now > endTime) {
+    // Application window has ended
+    canApply = false
+    buttonText = 'Applications Closed'
+  } else {
+    // Within application window
+    canApply = true
+    buttonText = 'Apply'
+  }
+  
   const apply = async () => {
     setMessage('')
     const res = await fetch('/applications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId: job.id }) })
@@ -188,7 +219,7 @@ function CandidateJobActions({ job }){
   return (
     <div className="space-y-2">
       {!app ? (
-        <button disabled={!canApply} onClick={apply} className="px-3 py-2 bg-indigo-600 text-white rounded disabled:opacity-50">{canApply? 'Apply' : 'Applications Closed'}</button>
+        <button disabled={!canApply} onClick={apply} className="px-3 py-2 bg-indigo-600 text-white rounded disabled:opacity-50">{buttonText}</button>
       ) : (
         <div className="space-y-2">
           <div className="text-sm">Stage: <span className="px-2 py-1 bg-gray-100 rounded text-xs">{app.stage}</span></div>
@@ -278,21 +309,44 @@ function AssessmentEntry({ job }){
   const [showGate, setShowGate] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+
+  const now = Date.now()
+  const startMs = job?.assessmentDate ? new Date(job.assessmentDate).getTime() : null
+  const durationMs = (job?.assessmentDuration ?? 0) * 60_000
+  const endMs = startMs!=null ? startMs + durationMs : null
+  const inWindow = startMs!=null && durationMs>0 && now >= startMs && now <= endMs
+
   const start = () => {
+    if (!inWindow) return
     if (!name || !email) return alert('Please provide name and email to verify')
     // navigate to assessment builder runtime route (reuse existing builder page for now)
     window.location.assign(`/jobs/${job.id}/assessment`)
   }
   return (
-    <div>
+    <div className="space-y-2">
       {!showGate ? (
-        <button onClick={()=>setShowGate(true)} className="px-3 py-2 border rounded">Take Assessment</button>
+        <button
+          onClick={()=> inWindow && setShowGate(true)}
+          disabled={!inWindow}
+          className="px-3 py-2 border rounded disabled:opacity-50"
+          title={inWindow ? undefined : 'Assessment is only available during the scheduled window'}
+        >
+          Take Assessment
+        </button>
       ) : (
         <div className="p-3 border rounded bg-white space-y-2 max-w-sm">
+          {!inWindow && (
+            <div className="text-sm text-red-600">Assessment window is closed. Please return during the scheduled time.</div>
+          )}
           <div className="text-sm">Verify your identity to start</div>
           <input value={name} onChange={e=>setName(e.target.value)} placeholder="Your name" className="w-full border rounded px-2 py-1" />
           <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Your email" className="w-full border rounded px-2 py-1" />
-          <button onClick={start} className="px-3 py-2 bg-indigo-600 text-white rounded w-full">Start Assessment</button>
+          <button onClick={start} disabled={!inWindow} className="px-3 py-2 bg-indigo-600 text-white rounded w-full disabled:opacity-50">Start Assessment</button>
+        </div>
+      )}
+      {startMs!=null && durationMs>0 && (
+        <div className="text-xs text-gray-600">
+          Assessment window: {new Date(startMs).toISOString()} → {new Date(endMs).toISOString()}
         </div>
       )}
     </div>

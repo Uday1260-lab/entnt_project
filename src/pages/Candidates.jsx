@@ -35,22 +35,30 @@ export default function Candidates(){
       {isError && <ErrorBanner message={error.message} />}
 
       {!isLoading && !isError && (
-        <div className="h-[520px] border rounded bg-white">
-          <List height={520} itemCount={items.length} itemSize={56} width={'100%'}>
-            {({ index, style }) => {
-              const c = items[index]
-              return (
-                <div style={style} className="px-3 border-b flex items-center justify-between">
-                  <div>
-                    <div className="font-medium"><Link className="text-indigo-600" to={`/candidates/${c.id}`}>{c.name}</Link></div>
-                    <div className="text-sm text-gray-500">{c.email}</div>
-                  </div>
-                  <div className="text-xs px-2 py-1 rounded bg-gray-100">{c.stage}</div>
-                </div>
-              )
-            }}
-          </List>
-        </div>
+        <>
+          {items.length > 0 ? (
+            <div className="h-[520px] border rounded bg-white">
+              <List height={520} itemCount={items.length} itemSize={56} width={'100%'}>
+                {({ index, style }) => {
+                  const c = items[index]
+                  return (
+                    <div style={style} className="px-3 border-b flex items-center justify-between">
+                      <div>
+                        <div className="font-medium"><Link className="text-indigo-600" to={`/candidates/${c.id}`}>{c.name}</Link></div>
+                        <div className="text-sm text-gray-500">{c.email}</div>
+                      </div>
+                      <div className="text-xs px-2 py-1 rounded bg-gray-100">{c.stage}</div>
+                    </div>
+                  )
+                }}
+              </List>
+            </div>
+          ) : (
+            <div className="border rounded bg-white p-8 text-center text-gray-500">
+              No entry
+            </div>
+          )}
+        </>
       )}
     </div>
   )

@@ -54,7 +54,7 @@ export async function seedAll(){
       description: 'We are seeking talented engineers to join our team.',
       salary: 80000 + Math.floor(Math.random()*70000),
       attachments: [],
-      startDate: new Date(Date.now() - 3*24*60*60*1000).toISOString(),
+      startDate: new Date(Date.now() + 1*24*60*60*1000).toISOString(),
       endDate: new Date(Date.now() + 7*24*60*60*1000).toISOString(),
       assessmentDate: new Date(Date.now() + 9*24*60*60*1000).toISOString(),
       assessmentDuration: 45,
@@ -99,7 +99,7 @@ export async function seedAll(){
   // candidateProfiles placeholders for seeded candidates (not required, but helps);
   await db.candidateProfiles.bulkAdd(candidates.slice(0,10).map(c => ({ candidateId: c.id, completedAt: Date.now() }))).catch(()=>{})
 
-  // 3 assessments with 10+ questions
+  // DSA Assessment for first 3 jobs
   for (let i=0;i<3;i++){
     const job = jobs[i]
     const assessment = {
@@ -107,24 +107,44 @@ export async function seedAll(){
       sections: [
         {
           id: crypto.randomUUID(),
-          title: 'Basics',
+          title: 'Section A: Multiple Choice Questions (MCQs)',
           questions: [
-            { id: crypto.randomUUID(), type: 'shortText', label: 'Full name', required: true, maxLength: 80 },
-            { id: crypto.randomUUID(), type: 'longText', label: 'Why do you want this role?', required: true, maxLength: 500 },
-            { id: crypto.randomUUID(), type: 'singleChoice', label: 'Are you willing to relocate?', options: ['Yes','No'], required: true },
-            { id: crypto.randomUUID(), type: 'multiChoice', label: 'Preferred stacks', options: ['React','Vue','Angular','Node','Python'] },
-            { id: crypto.randomUUID(), type: 'numeric', label: 'Years of experience', min: 0, max: 40, required: true },
-            { id: crypto.randomUUID(), type: 'file', label: 'Resume (upload stub)' },
-            { id: crypto.randomUUID(), type: 'shortText', label: 'GitHub URL', maxLength: 200 },
-            { id: crypto.randomUUID(), type: 'shortText', label: 'LinkedIn URL', maxLength: 200 },
-            { id: crypto.randomUUID(), type: 'singleChoice', label: 'Open to contract?', options: ['Yes','No'] },
-            { id: crypto.randomUUID(), type: 'shortText', label: 'Current location', maxLength: 120 },
+            { id: crypto.randomUUID(), type: 'singleChoice', label: '1. What is the worst-case time complexity of inserting an element into a balanced Binary Search Tree (BST) with n nodes?', options: ['O(1)', 'O(log n)', 'O(n)', 'O(n log n)'], required: true, hasMarks: true, marksCorrect: 2, marksIncorrect: -0.5, correctOption: 'O(log n)' },
+            { id: crypto.randomUUID(), type: 'singleChoice', label: '2. Which of the following sorting algorithms typically has the worst-case time complexity of O(n²)?', options: ['Merge Sort', 'Heap Sort', 'Quick Sort', 'Bubble Sort'], required: true, hasMarks: true, marksCorrect: 2, marksIncorrect: -0.5, correctOption: 'Bubble Sort' },
+            { id: crypto.randomUUID(), type: 'singleChoice', label: '3. In the context of a hash table, what does the term "load factor" represent?', options: ['The number of buckets in the table', 'The ratio of the number of elements to the number of buckets', 'The time taken to compute the hash function', 'The number of collisions that have occurred'], required: true, hasMarks: true, marksCorrect: 2, marksIncorrect: -0.5, correctOption: 'The ratio of the number of elements to the number of buckets' },
+            { id: crypto.randomUUID(), type: 'singleChoice', label: '4. Which data structure is most efficient for implementing a First-In-First-Out (FIFO) policy?', options: ['Stack', 'Queue', 'Array', 'Tree'], required: true, hasMarks: true, marksCorrect: 2, marksIncorrect: -0.5, correctOption: 'Queue' },
+            { id: crypto.randomUUID(), type: 'singleChoice', label: '5. The process of visiting all nodes in a tree in the order: root, left subtree, right subtree, is known as:', options: ['In-order Traversal', 'Pre-order Traversal', 'Post-order Traversal', 'Level-order Traversal'], required: true, hasMarks: true, marksCorrect: 2, marksIncorrect: -0.5, correctOption: 'Pre-order Traversal' },
+            { id: crypto.randomUUID(), type: 'singleChoice', label: '6. Which graph traversal algorithm uses a queue data structure?', options: ['Depth-First Search (DFS)', 'Breadth-First Search (BFS)', 'Dijkstra\'s Algorithm', 'Topological Sort'], required: true, hasMarks: true, marksCorrect: 2, marksIncorrect: -0.5, correctOption: 'Breadth-First Search (BFS)' },
+            { id: crypto.randomUUID(), type: 'singleChoice', label: '7. In a min-heap, the element at the root is always:', options: ['The largest element', 'The median element', 'The smallest element', 'There is no specific order'], required: true, hasMarks: true, marksCorrect: 2, marksIncorrect: -0.5, correctOption: 'The smallest element' },
+            { id: crypto.randomUUID(), type: 'singleChoice', label: '8. What is the space complexity of the recursive Fibonacci function without memoization?', options: ['O(1)', 'O(n)', 'O(log n)', 'O(2^n)'], required: true, hasMarks: true, marksCorrect: 2, marksIncorrect: -0.5, correctOption: 'O(n)' },
+            { id: crypto.randomUUID(), type: 'singleChoice', label: '9. A graph where each edge has a numerical weight assigned to it is called a:', options: ['Weighted Graph', 'Directed Graph', 'Connected Graph', 'Complete Graph'], required: true, hasMarks: true, marksCorrect: 2, marksIncorrect: -0.5, correctOption: 'Weighted Graph' },
+            { id: crypto.randomUUID(), type: 'singleChoice', label: '10. Which of the following is NOT a stable sorting algorithm?', options: ['Bubble Sort', 'Insertion Sort', 'Merge Sort', 'Heap Sort'], required: true, hasMarks: true, marksCorrect: 2, marksIncorrect: -0.5, correctOption: 'Heap Sort' },
+          ],
+        },
+        {
+          id: crypto.randomUUID(),
+          title: 'Section B: Multiple Select Questions (MSQs)',
+          questions: [
+            { id: crypto.randomUUID(), type: 'multiChoice', label: '11. Which of the following data structures can be used to implement a priority queue? (Select all that apply)', options: ['Linked List', 'Stack', 'Heap', 'Balanced BST'], required: true, hasMarks: true, marksCorrect: 4, marksIncorrect: 0, correctOptions: ['Heap', 'Balanced BST'] },
+            { id: crypto.randomUUID(), type: 'multiChoice', label: '12. Which of the following statements about Dynamic Programming are true? (Select all that apply)', options: ['It is mainly used to solve problems with overlapping subproblems', 'It always has a better time complexity than a recursive solution', 'It uses memoization or tabulation to store results of subproblems', 'It is applicable to all problems solved by divide and conquer'], required: true, hasMarks: true, marksCorrect: 4, marksIncorrect: 0, correctOptions: ['It is mainly used to solve problems with overlapping subproblems', 'It uses memoization or tabulation to store results of subproblems'] },
+            { id: crypto.randomUUID(), type: 'multiChoice', label: '13. For an undirected graph, which of the following are always true? (Select all that apply)', options: ['The sum of degrees of all vertices is even', 'The number of vertices of odd degree is even', 'It must be connected', 'It can contain cycles'], required: true, hasMarks: true, marksCorrect: 4, marksIncorrect: 0, correctOptions: ['The sum of degrees of all vertices is even', 'The number of vertices of odd degree is even', 'It can contain cycles'] },
+            { id: crypto.randomUUID(), type: 'multiChoice', label: '14. Which operations have an O(1) time complexity in the worst case for a doubly linked list with a pointer to both the head and the tail? (Select all that apply)', options: ['Insertion at the beginning', 'Deletion from the end', 'Searching for an element', 'Insertion at the end'], required: true, hasMarks: true, marksCorrect: 4, marksIncorrect: 0, correctOptions: ['Insertion at the beginning', 'Deletion from the end', 'Insertion at the end'] },
+            { id: crypto.randomUUID(), type: 'multiChoice', label: '15. Which of the following problems can be solved using a Stack data structure? (Select all that apply)', options: ['Evaluating a postfix expression', 'Implementing a queue', 'Reversing a string', 'Finding the shortest path in an unweighted graph'], required: true, hasMarks: true, marksCorrect: 4, marksIncorrect: 0, correctOptions: ['Evaluating a postfix expression', 'Implementing a queue', 'Reversing a string'] },
+          ],
+        },
+        {
+          id: crypto.randomUUID(),
+          title: 'Section C: Numerical Answer Questions',
+          questions: [
+            { id: crypto.randomUUID(), type: 'numeric', label: '16. What is the maximum number of nodes in a binary tree of height 4? (Assume the root is at level 0)', required: true, hasMarks: true, marksCorrect: 3, marksIncorrect: 0, correctValue: 31 },
+            { id: crypto.randomUUID(), type: 'numeric', label: '17. In a hash table of size 10, using linear probing for collision resolution, what will be the final index of the key 23 after inserting keys 13, 33, 23? (Use hash function: h(key) = key % 10)', required: true, hasMarks: true, marksCorrect: 3, marksIncorrect: 0, correctValue: 5 },
+            { id: crypto.randomUUID(), type: 'numeric', label: '18. How many comparisons are required in the worst case to find a specific element in a sorted array of 16 elements using Binary Search?', required: true, hasMarks: true, marksCorrect: 3, marksIncorrect: 0, correctValue: 5 },
+            { id: crypto.randomUUID(), type: 'numeric', label: '19. Consider the in-order traversal of a Binary Search Tree (BST) is: [5, 10, 15, 20, 25]. What is the sum of the pre-order traversal\'s first and last elements?', required: true, hasMarks: true, marksCorrect: 3, marksIncorrect: 0, correctValue: 30 },
+            { id: crypto.randomUUID(), type: 'numeric', label: '20. In a complete undirected graph with 5 vertices, how many unique edges are present?', required: true, hasMarks: true, marksCorrect: 3, marksIncorrect: 0, correctValue: 10 },
           ],
         },
       ],
-      conditions: [
-        // Example: show last question only if relocate === 'Yes'
-      ],
+      conditions: [],
     }
     await db.assessments.put(assessment)
   }

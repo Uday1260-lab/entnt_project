@@ -10,10 +10,19 @@ export default function Pipeline(){
   const update = useUpdateCandidate()
   const [tab, setTab] = useState('applied')
   const [page, setPage] = useState(1)
-  const pageSize = 20
+  const [searchQuery, setSearchQuery] = useState('')
+  const pageSize = 10
 
   const items = data?.items || []
-  const stageItems = useMemo(() => items.filter(c => c.stage === tab), [items, tab])
+  const stageItems = useMemo(() => {
+    const filtered = items.filter(c => c.stage === tab)
+    if (!searchQuery.trim()) return filtered
+    const q = searchQuery.toLowerCase()
+    return filtered.filter(c => 
+      c.name?.toLowerCase().includes(q) || 
+      c.email?.toLowerCase().includes(q)
+    )
+  }, [items, tab, searchQuery])
   const start = (page - 1) * pageSize
   const pageItems = stageItems.slice(start, start + pageSize)
 
@@ -29,6 +38,17 @@ export default function Pipeline(){
 
   return (
     <div className="space-y-4">
+      {/* Search bar */}
+      <div className="bg-white border rounded p-3">
+        <input
+          type="text"
+          placeholder="Search by name or email..."
+          value={searchQuery}
+          onChange={(e) => { setSearchQuery(e.target.value); setPage(1) }}
+          className="w-full border rounded px-3 py-2"
+        />
+      </div>
+
       {/* Tabs */}
       <div className="flex border-b bg-white rounded-t overflow-x-auto">
         {stages.map(s => (
@@ -63,7 +83,7 @@ export default function Pipeline(){
                 </tr>
               ))
             ) : (
-              <tr><td className="p-3 text-sm text-gray-500" colSpan={4}>No candidates in this stage.</td></tr>
+              <tr><td className="p-3 text-sm text-gray-500 text-center" colSpan={4}>No entry</td></tr>
             )}
           </tbody>
         </table>

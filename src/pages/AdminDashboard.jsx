@@ -5,6 +5,9 @@ import { useAuth } from '../context/AuthContext.jsx'
 export default function AdminDashboard(){
   const { user } = useAuth()
   const [users, setUsers] = useState([])
+  const [showAdd, setShowAdd] = useState(false)
+  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'hr-team' })
+  const [err, setErr] = useState('')
 
   useEffect(() => {
     (async()=>{
@@ -19,6 +22,16 @@ export default function AdminDashboard(){
   const changeRole = async (id, role) => {
     const res = await fetch(`/users/${id}/role`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role }) })
     if (res.ok) setUsers(u => u.map(x => x.id===id ? { ...x, role } : x))
+  }
+
+  const addUser = async () => {
+    setErr('')
+    const res = await fetch('/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newUser) })
+    if (!res.ok) { const d = await res.json().catch(()=>({})); setErr(d.message||'Failed to add'); return }
+    const created = await res.json()
+    setUsers(list => [...list, created])
+    setShowAdd(false)
+    setNewUser({ email: '', password: '', role: 'hr-team' })
   }
 
   const resetData = async () => {
@@ -51,11 +64,35 @@ export default function AdminDashboard(){
       </div>
       {user?.role==='admin' && (
         <div className="bg-white border rounded p-3">
-          <div className="font-medium mb-2">Team Members</div>
+          <div className="font-medium mb-2 flex items-center justify-between">
+            <span>Team Members</span>
+            <button onClick={()=>{ setShowAdd(s=>!s); setErr('') }} className="px-2 py-1 border rounded text-sm">{showAdd ? 'Close' : 'Add member'}</button>
+          </div>
+          {showAdd && (
+            <div className="mb-3 p-3 border rounded bg-gray-50 flex flex-wrap gap-2 items-end">
+              {err && <div className="w-full text-sm text-red-600">{err}</div>}
+              <div>
+                <label className="block text-xs text-gray-600">Email</label>
+                <input value={newUser.email} onChange={e=>setNewUser(u=>({ ...u, email: e.target.value }))} className="border rounded px-2 py-1" placeholder="user@example.com" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600">Password</label>
+                <input type="password" value={newUser.password} onChange={e=>setNewUser(u=>({ ...u, password: e.target.value }))} className="border rounded px-2 py-1" placeholder="temporary password" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600">Role</label>
+                <select value={newUser.role} onChange={e=>setNewUser(u=>({ ...u, role: e.target.value }))} className="border rounded px-2 py-1">
+                  <option value="hr-team">HR Team</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <button onClick={addUser} className="px-3 py-2 bg-indigo-600 text-white rounded">Create</button>
+            </div>
+          )}
           <table className="w-full text-sm">
             <thead><tr><th className="text-left p-2">Email</th><th className="text-left p-2">Role</th><th className="p-2">Actions</th></tr></thead>
             <tbody>
-              {users.map(u => (
+              {users.filter(u=>u.role==='admin' || u.role==='hr-team').map(u => (
                 <tr key={u.id} className="border-t">
                   <td className="p-2">{u.email}</td>
                   <td className="p-2">{u.role}</td>

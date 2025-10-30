@@ -186,9 +186,16 @@ export function makeServer({ environment = 'development' } = {}) {
         await maybeFail({ write: true })
         const { jobId } = request.params
         const body = JSON.parse(request.requestBody || '{}')
+        
+        // Check if already submitted
+        const existingSubmission = await db.submissions.where('[jobId+candidateId]').equals([jobId, body.candidateId]).first().catch(()=>null)
+        if (existingSubmission) {
+          return new Response(400, {}, { message: 'Assessment already submitted for this job' })
+        }
+        
         const submission = { id: crypto.randomUUID(), jobId, candidateId: body.candidateId, at: Date.now(), answers: body.answers }
         await db.submissions.add(submission)
-        // scoring: existing heuristic + optional per-question marks when hasMarks is set
+        // scoring: prefer stored answer key when provided (for questions with marks), else fallback heuristic
         let attempted = 0, correct = 0, incorrect = 0, skipped = 0, marks = 0
         const a = await db.assessments.where('jobId').equals(jobId).first()
         const allQs = (a?.sections||[]).flatMap(s => s.questions||[])
@@ -197,11 +204,27 @@ export function makeServer({ environment = 'development' } = {}) {
           if (v==='' || v===undefined || (Array.isArray(v)&&v.length===0)) { skipped++; continue }
           attempted++
           let isCorrect = false
-          if (q.type==='singleChoice' && q.options?.includes('Yes')) {
-            isCorrect = (v==='Yes')
+          const markable = !!q.hasMarks && (q.type==='singleChoice' || q.type==='multiChoice' || q.type==='numeric')
+          // Use explicit answer key when available for marked questions of allowed types
+          if (markable) {
+            if (q.type==='singleChoice' && q.correctOption!=null) {
+              isCorrect = (v === q.correctOption)
+            } else if (q.type==='multiChoice' && Array.isArray(q.correctOptions)) {
+              const arr = Array.isArray(v) ? v.slice().sort() : []
+              const corr = q.correctOptions.slice().sort()
+              isCorrect = (arr.length===corr.length && arr.every((x,idx)=>x===corr[idx]))
+            } else if (q.type==='numeric' && q.correctValue!=null) {
+              isCorrect = (v === q.correctValue)
+            }
+          }
+          // Fallback heuristic when no explicit answer key was provided
+          if (!isCorrect && !markable) {
+            if (q.type==='singleChoice' && q.options?.includes('Yes')) {
+              isCorrect = (v==='Yes')
+            }
           }
           if (isCorrect) correct++; else incorrect++
-          if (q.hasMarks) {
+          if (markable) {
             const c = (q.marksCorrect ?? 1)
             const ic = (q.marksIncorrect ?? 0)
             marks += isCorrect ? c : ic
@@ -219,6 +242,24 @@ export function makeServer({ environment = 'development' } = {}) {
           await db.applications.put(app)
         }
         return { ok: true, id: submission.id, attempted, correct, incorrect, skipped, marks }
+      })
+
+      // Get submission details for HR/admin
+      this.get('/submissions/:submissionId', async (_, request) => {
+        await randomDelay()
+        const { submissionId } = request.params
+        const sub = await db.submissions.get(submissionId)
+        if (!sub) return new Response(404)
+        return sub
+      })
+
+      // Get submission by job and candidate
+      this.get('/submissions/by-job-candidate/:jobId/:candidateId', async (_, request) => {
+        await randomDelay()
+        const { jobId, candidateId } = request.params
+        const sub = await db.submissions.where('[jobId+candidateId]').equals([jobId, candidateId]).first().catch(()=>null)
+        if (!sub) return new Response(404)
+        return sub
       })
 
       // Admin maintenance: reset jobs/candidates data and reseed
@@ -291,6 +332,23 @@ export function makeServer({ environment = 'development' } = {}) {
         await randomDelay()
         const list = await db.users.toArray()
         return { items: list }
+      })
+      // Admin create user without logging in
+      this.post('/admin/users', async (_, request) => {
+        await randomDelay()
+        await maybeFail({ write: true })
+        const body = JSON.parse(request.requestBody || '{}')
+        const email = (body.email||'').toLowerCase().trim()
+        const role = body.role
+        const password = body.password || 'changeme'
+        if (!email || !['admin','hr-team'].includes(role)) return new Response(400, {}, { message: 'Email and role (admin|hr-team) required' })
+        const exists = await db.users.where('email').equals(email).first()
+        if (exists) return new Response(400, {}, { message: 'Email already exists' })
+        const u = { id: crypto.randomUUID(), email, role, password, phone: '', address: '', postalCode: '' }
+        await db.users.add(u)
+        // Also create empty profile for completeness
+        await db.candidateProfiles.put({ candidateId: u.id }).catch(()=>{})
+        return { id: u.id, email: u.email, role: u.role }
       })
       this.get('/users/:id', async (_, request) => {
         await randomDelay()
@@ -370,13 +428,77 @@ export function makeServer({ environment = 'development' } = {}) {
         let items = await db.applications.toArray()
         if (qp.candidateId) items = items.filter(a => a.candidateId === qp.candidateId)
         if (qp.jobId) items = items.filter(a => a.jobId === qp.jobId)
-        return { items }
+        
+        // Auto-reject candidates who didn't take assessment after deadline
+        const now = Date.now()
+        const updatedItems = []
+        for (const app of items) {
+          // Skip if already rejected or if no assessment data
+          if (app.stage === 'rejected') {
+            updatedItems.push(app)
+            continue
+          }
+          
+          // Get job details to check assessment deadline
+          const job = await db.jobs.get(app.jobId)
+          if (job?.assessmentDate && job?.assessmentDuration) {
+            const assessmentStart = new Date(job.assessmentDate).getTime()
+            const assessmentEnd = assessmentStart + (job.assessmentDuration * 60 * 1000)
+            
+            // Check if assessment window has closed
+            if (now > assessmentEnd) {
+              // Check if candidate has submitted assessment
+              const submission = await db.submissions.where('[jobId+candidateId]').equals([app.jobId, app.candidateId]).first().catch(()=>null)
+              
+              // If no submission and assessment is closed, auto-reject
+              if (!submission && app.stage === 'applied') {
+                app.stage = 'rejected'
+                app.assessmentScore = 0
+                app.attempted = 0
+                app.correct = 0
+                app.incorrect = 0
+                app.skipped = 0
+                app.marks = 0
+                await db.applications.put(app)
+              }
+            }
+          }
+          updatedItems.push(app)
+        }
+        
+        return { items: updatedItems }
       })
       this.get('/applications/:id', async (_, request) => {
         await randomDelay()
         const { id } = request.params
         const app = await db.applications.get(id)
         if (!app) return new Response(404)
+        
+        // Auto-reject if assessment deadline passed and not submitted
+        if (app.stage !== 'rejected') {
+          const now = Date.now()
+          const job = await db.jobs.get(app.jobId)
+          if (job?.assessmentDate && job?.assessmentDuration) {
+            const assessmentStart = new Date(job.assessmentDate).getTime()
+            const assessmentEnd = assessmentStart + (job.assessmentDuration * 60 * 1000)
+            
+            if (now > assessmentEnd) {
+              const submission = await db.submissions.where('[jobId+candidateId]').equals([app.jobId, app.candidateId]).first().catch(()=>null)
+              
+              if (!submission && app.stage === 'applied') {
+                app.stage = 'rejected'
+                app.assessmentScore = 0
+                app.attempted = 0
+                app.correct = 0
+                app.incorrect = 0
+                app.skipped = 0
+                app.marks = 0
+                await db.applications.put(app)
+              }
+            }
+          }
+        }
+        
         return app
       })
       this.patch('/applications/:id', async (_, request) => {
@@ -389,7 +511,12 @@ export function makeServer({ environment = 'development' } = {}) {
           const app = await db.applications.get(id)
           const fromIdx = stageOrder.indexOf(app?.stage)
           const toIdx = stageOrder.indexOf(updates.stage)
-          if (fromIdx !== -1 && toIdx !== -1 && toIdx < fromIdx) {
+          
+          // Special case: Allow candidates to accept (hired) or reject from "offer" stage
+          if (app?.stage === 'offer' && (updates.stage === 'hired' || updates.stage === 'rejected')) {
+            // This is allowed - candidate responding to offer
+          } else if (fromIdx !== -1 && toIdx !== -1 && toIdx < fromIdx) {
+            // Normal backward movement prevention
             return new Response(400, {}, { message: 'Stage cannot move backward' })
           }
         }

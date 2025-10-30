@@ -54,11 +54,11 @@ export default function CandidateJobs(){
               </tr>
             </thead>
           ) : (
-            <thead className="bg-gray-50 text-left"><tr><th className="p-2">Title</th><th className="p-2">Stage</th><th className="p-2">Assessment</th></tr></thead>
+            <thead className="bg-gray-50 text-left"><tr><th className="p-2">Title</th><th className="p-2">Stage</th><th className="p-2">Assessment</th><th className="p-2">Actions</th></tr></thead>
           )}
           <tbody>
             {tab==='new' ? (
-              newJobs.length>0 ? (
+              newPageItems.length>0 ? (
                 newPageItems.map(j => (
                   <tr key={j.id} className="border-t">
                     <td className="p-2"><Link className="text-indigo-600" to={`/jobs/${j.id}`}>{j.title}</Link></td>
@@ -68,10 +68,10 @@ export default function CandidateJobs(){
                   </tr>
                 ))
               ) : (
-                <tr><td className="p-3 text-sm text-gray-500" colSpan={4}>No new jobs available.</td></tr>
+                <tr><td className="p-3 text-sm text-gray-500 text-center" colSpan={4}>No entry</td></tr>
               )
             ) : (
-              apps.length>0 ? (
+              appliedPageItems.length>0 ? (
                 appliedPageItems.map(a => {
                   const j = items.find(x => x.id===a.jobId)
                   if (!j) return null
@@ -92,16 +92,69 @@ export default function CandidateJobs(){
                   } else {
                     assessmentCell = <span>—</span>
                   }
+                  
+                  // Offer actions
+                  let actionsCell
+                  if (a.stage === 'offer') {
+                    actionsCell = (
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={async () => {
+                            if (!confirm('Accept this job offer?')) return
+                            try {
+                              await fetch(`/applications/${a.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ stage: 'hired' })
+                              })
+                              setApps(prev => prev.map(x => x.id === a.id ? { ...x, stage: 'hired' } : x))
+                            } catch (error) {
+                              alert('Failed to accept offer')
+                            }
+                          }}
+                          className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                        >
+                          Accept
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            if (!confirm('Reject this job offer?')) return
+                            try {
+                              await fetch(`/applications/${a.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ stage: 'rejected' })
+                              })
+                              setApps(prev => prev.map(x => x.id === a.id ? { ...x, stage: 'rejected' } : x))
+                            } catch (error) {
+                              alert('Failed to reject offer')
+                            }
+                          }}
+                          className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )
+                  } else if (a.stage === 'hired') {
+                    actionsCell = <span className="text-green-600 font-semibold">✓ Accepted</span>
+                  } else if (a.stage === 'rejected') {
+                    actionsCell = <span className="text-red-600">Rejected</span>
+                  } else {
+                    actionsCell = <span className="text-gray-400">—</span>
+                  }
+                  
                   return (
                     <tr key={a.id} className="border-t">
                       <td className="p-2"><Link className="text-indigo-600" to={`/jobs/${j.id}`}>{j.title}</Link></td>
-                      <td className="p-2">{a.stage}</td>
+                      <td className="p-2 capitalize">{a.stage}</td>
                       <td className="p-2">{assessmentCell}</td>
+                      <td className="p-2">{actionsCell}</td>
                     </tr>
                   )
                 })
               ) : (
-                <tr><td className="p-3 text-sm text-gray-500" colSpan={3}>You have not applied to any jobs yet.</td></tr>
+                <tr><td className="p-3 text-sm text-gray-500 text-center" colSpan={4}>No entry</td></tr>
               )
             )}
           </tbody>

@@ -24,8 +24,15 @@ export default function Jobs(){
   const reorder = useReorderJob()
 
   const onArchiveToggle = async (job) => {
-    try { await updateJob.mutateAsync({ id: job.id, updates: { status: job.status === 'active' ? 'archived' : 'active' } }) }
-    catch (e) { alert(e.message) }
+    console.log('Archive toggle clicked for:', job.id, job.status)
+    try { 
+      const result = await updateJob.mutateAsync({ id: job.id, updates: { status: job.status === 'active' ? 'archived' : 'active' } })
+      console.log('Archive toggle result:', result)
+    }
+    catch (e) { 
+      console.error('Archive toggle error:', e)
+      alert(e.message) 
+    }
   }
 
   const onReorder = async (fromAbs, toAbs, jobId) => {
@@ -86,17 +93,31 @@ export default function Jobs(){
               </thead>
               <SortableContext items={items.map(j=>j.id)} strategy={verticalListSortingStrategy}>
                 <tbody>
-                  {items.map(job => (
-                    <DraggableRow key={job.id} id={job.id}>
-                      <td className="p-2">{job.order}</td>
-                      <td className="p-2"><Link className="text-indigo-600" to={`/jobs/${job.id}`}>{job.title}</Link></td>
-                      <td className="p-2">{job.status}</td>
-                      <td className="p-2">{(job.tags||[]).join(', ')}</td>
-                      <td className="p-2 flex gap-2">
-                        <button onClick={()=>onArchiveToggle(job)} className="px-2 py-1 border rounded">{job.status==='active'?'Archive':'Unarchive'}</button>
-                      </td>
-                    </DraggableRow>
-                  ))}
+                  {items.length > 0 ? (
+                    items.map(job => (
+                      <DraggableRow key={job.id} id={job.id}>
+                        <td className="p-2">{job.order}</td>
+                        <td className="p-2"><Link className="text-indigo-600" to={`/jobs/${job.id}`}>{job.title}</Link></td>
+                        <td className="p-2">{job.status}</td>
+                        <td className="p-2">{(job.tags||[]).join(', ')}</td>
+                        <td className="p-2 flex gap-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onArchiveToggle(job)
+                            }}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            className="px-2 py-1 border rounded hover:bg-gray-100"
+                          >
+                            {job.status==='active'?'Archive':'Unarchive'}
+                          </button>
+                        </td>
+                      </DraggableRow>
+                    ))
+                  ) : (
+                    <tr><td className="p-3 text-sm text-gray-500 text-center" colSpan={5}>No entry</td></tr>
+                  )}
                 </tbody>
               </SortableContext>
             </table>
@@ -115,9 +136,21 @@ export default function Jobs(){
 function DraggableRow({ id, children }){
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id })
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
+  
+  // Clone children and add drag listeners only to non-action cells
+  const childrenArray = Array.isArray(children) ? children : [children]
+  const modifiedChildren = childrenArray.map((child, index) => {
+    // Last cell is actions - don't add drag listeners
+    if (index === childrenArray.length - 1) {
+      return child
+    }
+    // Add drag listeners to other cells
+    return <td key={index} {...attributes} {...listeners} className={child.props.className}>{child.props.children}</td>
+  })
+  
   return (
-    <tr ref={setNodeRef} style={style} {...attributes} {...listeners} className={`border-t ${isDragging?'ring-2 ring-indigo-400':''}`}>
-      {children}
+    <tr ref={setNodeRef} style={style} className={`border-t ${isDragging?'ring-2 ring-indigo-400':''}`}>
+      {modifiedChildren}
     </tr>
   )
 }

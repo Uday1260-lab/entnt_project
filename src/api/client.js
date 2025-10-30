@@ -12,6 +12,19 @@ export async function apiSend(method, url, body) {
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   })
-  if (!res.ok) throw new Error(await res.text() || res.statusText)
+  if (!res.ok) {
+    let errorMessage = res.statusText
+    try {
+      const errorData = await res.json()
+      errorMessage = errorData.message || errorData.error || errorMessage
+    } catch {
+      const text = await res.text()
+      if (text) errorMessage = text
+    }
+    const error = new Error(errorMessage)
+    error.status = res.status
+    error.response = { status: res.status }
+    throw error
+  }
   return res.json()
 }

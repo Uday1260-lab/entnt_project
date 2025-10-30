@@ -35,6 +35,18 @@ db.version(2).stores({
   }
 })
 
+// v3: add compound indexes for uniqueness constraints
+db.version(3).stores({
+  jobs: 'id, slug, status, order, startDate, endDate, assessmentDate',
+  candidates: 'id, email, stage, jobId',
+  timelines: 'id, candidateId, at',
+  assessments: 'jobId',
+  submissions: 'id, jobId, candidateId, at, [jobId+candidateId]',
+  users: 'id, email, role',
+  candidateProfiles: 'candidateId, completedAt',
+  applications: 'id, jobId, candidateId, appliedAt, stage, [jobId+candidateId]',
+})
+
 export async function resetDb(){
   await db.delete()
   await db.open()
