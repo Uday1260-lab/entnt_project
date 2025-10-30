@@ -6,5 +6,34 @@ html, body, #root {
   height: 100%;
 }
 
+body {
+  @apply bg-gray-50;
+}
+
 /* Utility for mention highlighting */
 .mention { @apply text-indigo-600 font-medium; }
+
+/* Custom scrollbar */
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+}
+
+/* Smooth transitions */
+* {
+  @apply transition-colors duration-150;
+}
